@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+        crossorigin="anonymous"></script>
+    <title>PDF to Text and Predictions</title>
+    <style>
+        .badge {
+            font-size: 12px;
+            margin-right: 5px;
+            cursor: pointer;
+            /* Make badges clickable */
+            background-color: #198754;
+            position: relative;
+        }
+
+        .border.p-3.bg-light {
+            margin-top: 20px;
+            min-width: 300px;
+            width: 100%;
+        }
+
+
+        h3 {
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .highlight {
+            background-color: yellow;
+            /* Highlight color */
+        }
+
+        .editable-text {
+            width: 100%;
+            min-height: 150px;
+            border: 1px solid #ced4da;
+            padding: 10px;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 300px;
+            /* Limit max height for scrolling */
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main">
+        <nav class="navbar navbar-expand-lg bg-body-tertiary">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">N E R</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                    aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="#">Home</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <div class="main-content">
+            <div class="container my-5">
+                <div class="row">
+                    <h1 class="text-center">Upload a PDF or Enter Text for Prediction</h1>
+                    <div class="col-md-10">
+                        <!-- Form for PDF upload -->
+                        <form method="post" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <h2 for="formFile" class="form-label ">Choose PDF File</h2>
+                                <input class="form-control mt-4" type="file" id="formFile" name="pdf_file"
+                                    accept="application/pdf" />
+                            </div>
+                            <button type="submit" class="btn btn-primary mb-3">Upload</button>
+                        </form>
+
+                        <!-- Form for direct text input -->
+                        <form method="post">
+                            <div class="mb-3">
+                                <label for="textInput" class="form-label">Or Enter Text Directly</label>
+                                <textarea class="form-control" id="textInput" name="text_input" rows="6"
+                                    placeholder="Enter text for prediction">{{ text_input }}</textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success">Analyze Text</button>
+                        </form>
+
+                        <!-- New Section for Display and Highlighting -->
+                        <div class="mt-5">
+                            <h2>Highlighted Text:</h2>
+                            <div id="displayText" class="editable-text">{{ text_input }}</div>
+                        </div>
+                    </div>
+                    <!-- Display predictions if available -->
+                    <div class="col-md-2">
+                        {% if predictions %}
+                        <h2 class="mt-0">Results:</h2>
+                        <div class="wrapper border p-3 bg-light ">
+                            {% for category, entities in predictions.items() %}
+                            <h3>{{ category }}:</h3>
+                            <ul>
+                                {# Create a dictionary to count entity occurrences #}
+                                {% set entity_counts = {} %}
+                                {% for entity in entities %}
+                                {% if entity in entity_counts %}
+                                {% set entity_counts = entity_counts.update({entity: entity_counts[entity] + 1}) %}
+                                {% else %}
+                                {% set entity_counts = entity_counts.update({entity: 1}) %}
+                                {% endif %}
+                                {% endfor %}
+
+                                {# Display unique entities with their counts #}
+                                {% for entity, count in entity_counts.items() %}
+                                <li>
+                                    <span class="badge" onclick="highlightText('{{ entity }}')">
+                                        {{ entity }} ({{ count }})
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function highlightText(text) {
+            const textDiv = document.getElementById('displayText');
+            const content = textDiv.innerText;
+
+            // Remove spaces from the text to be searched and the text content
+            const normalizedText = text.replace(/\s+/g, '').toLowerCase(); // Normalize search text by removing spaces and converting to lowercase
+            const normalizedContent = content.replace(/\s+/g, ' '); // Replace multiple spaces with a single space in the content
+
+            // Reset previous highlights
+            textDiv.innerHTML = normalizedContent;
+
+            // Highlight the searched text regardless of spaces
+            const highlightedContent = normalizedContent.replace(
+                new RegExp(text.split(' ').join('\\s*'), 'gi'), // Match the text with any spaces between
+                (match) => `<span class="highlight">${match}</span>`
+            );
+
+            textDiv.innerHTML = highlightedContent;
+
+            // Scroll to the first highlighted occurrence
+            const firstHighlighted = textDiv.querySelector('.highlight');
+            if (firstHighlighted) {
+                firstHighlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    </script>
+
+</body>
+
+</html>

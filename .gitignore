@@ -1,0 +1,3 @@
+
+model/ner-model/model.safetensors
+dataset/ner.csv
